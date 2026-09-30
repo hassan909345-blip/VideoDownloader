@@ -22,6 +22,20 @@ jobs:
           gradle-version: '8.9'
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Check app launch on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          script: |
+            adb install app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.hassan.videodownloader/.MainActivity
+            sleep 8
+            adb shell pidof com.hassan.videodownloader
       - uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-APK
