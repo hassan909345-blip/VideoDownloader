@@ -11,7 +11,8 @@ import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.io.File
 
 class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = try {
+    override suspend fun doWork(): Result {
+        return try {
         val url = inputData.getString("url") ?: return Result.failure(workDataOf("error" to "الرابط غير موجود"))
         val quality = inputData.getString("quality") ?: "1080"
         val dir = File(applicationContext.cacheDir, "downloads").apply { mkdirs() }
@@ -49,5 +50,6 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
         Result.success()
     } catch (e: Exception) {
         Result.failure(workDataOf("error" to (e.message ?: "فشل التنزيل")))
+    }
     }
 }
