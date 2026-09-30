@@ -41,17 +41,7 @@ jobs:
             adb shell uiautomator dump /sdcard/window.xml
             adb pull /sdcard/window.xml /tmp/window.xml
             python3 -c 'import xml.etree.ElementTree as E,re,subprocess; root=E.parse("/tmp/window.xml").getroot(); b=next(n.attrib["bounds"] for n in root.iter("node") if n.attrib.get("text")=="تحميل"); a=list(map(int,re.findall(r"[0-9]+",b))); subprocess.run(["adb","shell","input","tap",str((a[0]+a[2])//2),str((a[1]+a[3])//2)],check=True)'
-            for i in $(seq 1 60); do
-              if adb shell ls /sdcard/Download/VideoDownloader/ 2>/dev/null | grep -q '\\.mp4'; then
-                echo "Sample video downloaded and saved"
-                exit 0
-              fi
-              sleep 2
-            done
-            adb shell uiautomator dump /sdcard/window.xml
-            adb shell cat /sdcard/window.xml
-            adb logcat -d -t 300
-            exit 1
+            for i in $(seq 1 60); do if adb shell ls /sdcard/Download/VideoDownloader/ 2>/dev/null | grep -q '\\.mp4'; then echo 'Sample video downloaded and saved'; exit 0; fi; sleep 2; done; adb shell uiautomator dump /sdcard/window.xml; adb shell cat /sdcard/window.xml; adb logcat -d -t 200; exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-APK
