@@ -32,11 +32,13 @@ jobs:
           arch: x86_64
           target: google_apis
           script: |
+            ffmpeg -loglevel error -y -f lavfi -i color=c=blue:s=160x120:d=1 -c:v libx264 -pix_fmt yuv420p -an /tmp/sample.mp4
+            python3 -m http.server 8765 --directory /tmp --bind 0.0.0.0 > /tmp/video-server.log 2>&1 &
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.hassan.videodownloader/.MainActivity
             sleep 8
             adb shell pidof com.hassan.videodownloader
-            adb shell am start -W -n com.hassan.videodownloader/.MainActivity -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
+            adb shell am start -W -n com.hassan.videodownloader/.MainActivity -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT 'http://10.0.2.2:8765/sample.mp4'
             sleep 3
             adb shell uiautomator dump /sdcard/window.xml
             adb pull /sdcard/window.xml /tmp/window.xml
