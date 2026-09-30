@@ -31,19 +31,19 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 ?: return Result.failure(workDataOf("error" to "لم يتم العثور على ملف الفيديو"))
             val mime = if (file.extension.equals("mp4", true)) "video/mp4" else "video/${file.extension.lowercase()}"
             val values = ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
-                put(MediaStore.Video.Media.MIME_TYPE, mime)
-                put(MediaStore.Video.Media.RELATIVE_PATH, "Download/VideoDownloader")
-                put(MediaStore.Video.Media.IS_PENDING, 1)
+                put(MediaStore.Downloads.DISPLAY_NAME, file.name)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
+                put(MediaStore.Downloads.RELATIVE_PATH, "Download/VideoDownloader")
+                put(MediaStore.Downloads.IS_PENDING, 1)
             }
-            val uri = applicationContext.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            val uri = applicationContext.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: return Result.failure(workDataOf("error" to "تعذر حفظ الفيديو"))
             try {
                 applicationContext.contentResolver.openOutputStream(uri)?.use { output ->
                     file.inputStream().use { it.copyTo(output) }
                 } ?: throw IllegalStateException("تعذر كتابة الفيديو")
                 values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
                 applicationContext.contentResolver.update(uri, values, null, null)
                 Result.success()
             } catch (e: Exception) {
