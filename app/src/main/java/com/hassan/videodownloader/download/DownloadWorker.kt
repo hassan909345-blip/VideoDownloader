@@ -12,44 +12,48 @@ import java.io.File
 
 class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        return try {
         val url = inputData.getString("url") ?: return Result.failure(workDataOf("error" to "الرابط غير موجود"))
         val quality = inputData.getString("quality") ?: "1080"
-        val dir = File(applicationContext.cacheDir, "downloads").apply { mkdirs() }
-        dir.listFiles()?.forEach { it.delete() }
-
-        // Native libraries and Python data are initialized in the worker, not while opening the app.
-        YoutubeDL.getInstance().init(applicationContext)
-        val request = YoutubeDLRequest(url).apply {
-            addOption("-f", "bestvideo[height<=$quality]+bestaudio/best[height<=$quality]")
-            addOption("--merge-output-format", "mp4")
-            addOption("--no-playlist")
-            addOption("-o", File(dir, "%(title)s.%(ext)s").absolutePath)
+        val dir = File(applicationContext.cacheDir, "download-$id").apply { mkdirs() }
+        return try {
+            YoutubeDL.getInstance().init(applicationContext)
+            val request = YoutubeDLRequest(url).apply {
+                addOption("-f", "best[height<=$quality][ext=mp4]/best[height<=$quality]/best")
+                addOption("--no-playlist")
+                addOption("-o", File(dir, "%(title).180B.%(ext)s").absolutePath)
+            }
+            YoutubeDL.getInstance().execute(request, { progress: Float, _: Long, _: String ->
+                setProgressAsync(workDataOf("progress" to progress.toInt()))
+                Unit
+            }, id.toString())
+            if (isStopped) return Result.failure(workDataOf("error" to "تم إيقاف التنزيل"))
+            val file = dir.listFiles()?.firstOrNull { it.isFile && !it.name.endsWith(".part") }
+                ?: return Result.failure(workDataOf("error" to "لم يتم العثور على ملف الفيديو"))
+            val mime = if (file.extension.equals("mp4", true)) "video/mp4" else "video/${file.extension.lowercase()}"
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
+                put(MediaStore.Video.Media.MIME_TYPE, mime)
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Download/VideoDownloader")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+            val uri = applicationContext.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: return Result.failure(workDataOf("error" to "تعذر حفظ الفيديو"))
+            try {
+                applicationContext.contentResolver.openOutputStream(uri)?.use { output ->
+                    file.inputStream().use { it.copyTo(output) }
+                } ?: throw IllegalStateException("تعذر كتابة الفيديو")
+                values.clear()
+                values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                applicationContext.contentResolver.update(uri, values, null, null)
+                Result.success()
+            } catch (e: Exception) {
+                applicationContext.contentResolver.delete(uri, null, null)
+                throw e
+            }
+        } catch (e: Exception) {
+            Result.failure(workDataOf("error" to (e.message ?: "فشل التنزيل")))
+        } finally {
+            dir.deleteRecursively()
         }
-        YoutubeDL.getInstance().execute(request)
-        val file = dir.listFiles()?.maxByOrNull { it.lastModified() }
-            ?: return Result.failure(workDataOf("error" to "لم يتم العثور على الفيديو بعد التنزيل"))
-
-        val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
-            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "Download/VideoDownloader")
-            put(MediaStore.Video.Media.IS_PENDING, 1)
-        }
-        val uri = applicationContext.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-            ?: return Result.failure(workDataOf("error" to "تعذر حفظ الفيديو"))
-        val saved = applicationContext.contentResolver.openOutputStream(uri)?.use { out ->
-            file.inputStream().use { it.copyTo(out) }
-            true
-        } ?: false
-        if (!saved) return Result.failure(workDataOf("error" to "تعذر كتابة الفيديو"))
-        values.clear()
-        values.put(MediaStore.Video.Media.IS_PENDING, 0)
-        applicationContext.contentResolver.update(uri, values, null, null)
-        file.delete()
-        Result.success()
-    } catch (e: Exception) {
-        Result.failure(workDataOf("error" to (e.message ?: "فشل التنزيل")))
-    }
     }
 }
