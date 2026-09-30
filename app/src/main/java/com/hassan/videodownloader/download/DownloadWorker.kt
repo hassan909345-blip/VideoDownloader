@@ -22,10 +22,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 addOption("--no-playlist")
                 addOption("-o", File(dir, "%(title).180B.%(ext)s").absolutePath)
             }
-            YoutubeDL.getInstance().execute(request, { progress: Float, _: Long, _: String ->
+            YoutubeDL.getInstance().execute(request, id.toString()) { progress: Float, _: Long, _: String ->
                 setProgressAsync(workDataOf("progress" to progress.toInt()))
                 Unit
-            }, id.toString())
+            }
             if (isStopped) return Result.failure(workDataOf("error" to "تم إيقاف التنزيل"))
             val file = dir.listFiles()?.firstOrNull { it.isFile && !it.name.endsWith(".part") }
                 ?: return Result.failure(workDataOf("error" to "لم يتم العثور على ملف الفيديو"))
